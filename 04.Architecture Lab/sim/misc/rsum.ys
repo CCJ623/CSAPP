@@ -1,0 +1,42 @@
+.pos 0
+irmovq stack, %rsp
+call main
+halt
+
+# Setup linked list elements
+.align 8 
+ele1: 
+    .quad 0x00a 
+    .quad ele2 
+ele2: 
+    .quad 0x0b0 
+    .quad ele3 
+ele3: 
+    .quad 0xc00 
+    .quad 0
+
+# long rsum_list(list_ptr ls)
+# ls in %rdi
+rsum_list:
+    irmovq $0, %rax
+    andq %rdi, %rdi # Set CC
+    je end    # return if ls is nullptr
+
+    mrmovq (%rdi), %rax  # Get ls->val
+    mrmovq 8(%rdi), %rdi # Set ls to ls->next 
+    pushq %rax  # Save %rax
+    call rsum_list
+    popq %r8
+    addq %r8, %rax
+
+end:
+    ret # return
+
+main:
+    irmovq ele1, %rdi
+    call rsum_list
+    ret
+
+# Setup stack
+.pos 0x200
+stack:

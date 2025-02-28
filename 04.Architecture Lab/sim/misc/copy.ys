@@ -1,0 +1,52 @@
+.pos 0
+irmovq stack, %rsp
+call main
+halt
+
+.pos 50
+.align 8 
+# Source block 
+src: 
+    .quad 0x00a 
+    .quad 0x0b0 
+    .quad 0xc00 
+
+# Destination block 
+dest: 
+    .quad 0x111 
+    .quad 0x222 
+    .quad 0x333
+
+# long copy_block(long *src, long *dest, long len)
+# src in %rdi, dest in %rsi, len in %rdx
+copy_block:
+    irmovq $0, %rax # Set result to 0
+    andq %rdx, %rdx # Set CC
+    jmp test    # Goto test
+
+loop:
+    mrmovq (%rdi), %r8  # Get *src to val
+    irmovq $8, %r9  # Generate immediate 8
+    addq %r9, %rdi   # ++src
+    rmmovq %r8, (%rsi)  # Store val at dest
+    addq %r9, %rsi  # ++dest
+    xorq %r8, %rax   # result ^= val
+    irmovq $-1, %r9 # Generate immediate -1
+    addq %r9, %rdx  # --len
+
+test:
+    jg loop # Loop test
+
+end:
+    ret # return
+
+main:
+    irmovq src, %rdi
+    irmovq dest, %rsi
+    irmovq $3, %rdx
+    call copy_block
+    ret
+
+# Setup stack
+.pos 0x200
+stack:

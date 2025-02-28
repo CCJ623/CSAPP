@@ -1,0 +1,42 @@
+.pos 0
+irmovq stack, %rsp
+call main
+halt
+
+# Setup linked list elements
+.align 8 
+ele1: 
+    .quad 0x00a 
+    .quad ele2 
+ele2: 
+    .quad 0x0b0 
+    .quad ele3 
+ele3: 
+    .quad 0xc00 
+    .quad 0
+
+# long sum_list(list_ptr ls)
+# ls in %rdi
+sum_list:
+    irmovq $0, %rax # Init val
+    jmp test    # Goto test
+
+loop:
+    mrmovq (%rdi), %r8  # Get ls->val
+    addq %r8, %rax  # Add ls->val to val
+    mrmovq 8(%rdi), %r8 # Get ls->next
+    rrmovq %r8, %rdi    # Set ls to ls->next
+
+test:
+    andq %rdi, %rdi # Set CC
+    jne loop    # Loop test
+    ret # return
+
+main:
+    irmovq ele1, %rdi
+    call sum_list
+    ret
+
+# Setup stack
+.pos 0x200
+stack:
