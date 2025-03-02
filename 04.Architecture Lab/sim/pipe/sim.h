@@ -44,7 +44,7 @@ extern stat_t stat;
 extern mux_source_t amux, bmux;
 
 /* Provide global access to current states of all pipeline registers */
-pipe_ptr pc_state, if_id_state, id_ex_state, ex_mem_state, mem_wb_state;
+extern pipe_ptr pc_state, if_id_state, id_ex_state, ex_mem_state, mem_wb_state;
 
 /* Current States */
 extern pc_ptr pc_curr;

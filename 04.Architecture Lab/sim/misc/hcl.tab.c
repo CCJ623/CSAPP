@@ -82,7 +82,7 @@ int errcnt = 0;
 
 
 
-FILE *outfile;
+extern FILE* outfile;
 
 int yyparse(void);
 int yylex(void);
