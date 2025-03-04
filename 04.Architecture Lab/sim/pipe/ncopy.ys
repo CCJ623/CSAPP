@@ -22,7 +22,6 @@ ncopy:
 ##################################################################
 # You can modify this portion
 	# Loop header
-	xorq %rax,%rax		# count = 0;
 
 	iaddq $-4, %rdx		# if len < 4
 	jl RestElements		# goto RestElements:
@@ -105,8 +104,8 @@ UnrolledLoop8Test:
 
 UnrolledLoop4Init:
 	# step = 4
-	iaddq $8, %rdx		# restore len
-	iaddq $-4, %rdx		# len >= step ?
+	# equal to: iaddq $8, %rdx; iaddq $-4, %rdx
+	iaddq $4, %rdx		# len >= step ?
 	jge UnrolledLoop4	# if so, goto UnrolledLoop:
 	jmp RestElements		# goto LoopInit
 
@@ -152,26 +151,26 @@ UnrolledLoop4Test:
 	
 
 RestElements:
-	iaddq $4, %rdx		# restore len
-
-	mrmovq 0(%rdi), %r10	# read val from src...
-	iaddq $-1, %rdx			# len < 1 ?; --len
+	# equal to: iaddq $4, %rdx; iaddq $-1, %rdx
+	iaddq $3, %rdx		# restore len
 	jge Element1			# if so, goto Element1:
 	ret
 
 Element1:
+	mrmovq 0(%rdi), %r10	# read val from src...
 	rmmovq %r10, 0(%rsi)	# ...and store it to dst
 	andq %r10, %r10		# val <= 0?
 
 	jle Npos13		# if so, goto Npos:
 	iaddq $1, %rax		# count++
-Npos13:	
-	mrmovq 8(%rdi), %r11	# read val from src...
+Npos13:
+
 	iaddq $-1, %rdx			# len < 1 ?; --len
 	jge Element2			# if so, goto Element2:
 	ret
 
-Element2:
+Element2:	
+	mrmovq 8(%rdi), %r11	# read val from src...
 	rmmovq %r11, 8(%rsi)	# ...and store it to dst
 	andq %r11, %r11		# val <= 0?
 
@@ -179,12 +178,12 @@ Element2:
 	iaddq $1, %rax		# count++
 Npos14:
 
-	mrmovq 16(%rdi), %r12	# read val from src...
 	iaddq $-1, %rdx			# len < 1 ?; --len
 	jge Element3			# if so, goto Element3:
 	ret
 	
 Element3:
+	mrmovq 16(%rdi), %r12	# read val from src...
 	rmmovq %r12, 16(%rsi)	# ...and store it to dst
 	andq %r12, %r12		# val <= 0?
 
