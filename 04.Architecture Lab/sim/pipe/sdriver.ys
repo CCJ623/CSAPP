@@ -23,6 +23,9 @@ StartFun:
 # make first jump to Loop to avoid mispredicted in most situations
 # unroll loop
 # pair read/write to avoid load/use hazard
+# unroll rest elements
+# adjust compare order at first entry
+# replace variable step with iaddq instruction
 ##################################################################
 # Do not modify this portion
 # Function prologue.
@@ -32,14 +35,12 @@ ncopy:
 ##################################################################
 # You can modify this portion
 	# Loop header
-	xorq %rax,%rax		# count = 0;
-	
-UnrolledLoop8Init:
-	irmovq $8, %r8		# step = 8
-	subq %r8, %rdx		# len >= step ?
-	jge UnrolledLoop8	# if so, goto UnrolledLoop:
-	addq %r8, %rdx		# restore len
-	jmp UnrolledLoop4Init	# goto UnrolledLoop4
+
+	iaddq $-4, %rdx		# if len < 4
+	jl RestElements		# goto RestElements:
+
+	iaddq $-4, %rdx		# if len < 4 + 4
+	jl UnrolledLoop4Init # goto UnrolledLoop4Init
 
 UnrolledLoop8:
 	# 1 2
@@ -110,15 +111,15 @@ Npos8:
 	iaddq $64, %rsi		# dst += 8
 
 UnrolledLoop8Test:
-	subq %r8, %rdx		# len -= step, then len >= 0?
+	iaddq $-8, %rdx		# len -= step, then len >= 0?
 	jge UnrolledLoop8		# if so, goto UnrolledLoop8:
-	addq %r8, %rdx		# restore len
+	
 
 UnrolledLoop4Init:
-	irmovq $4, %r8		# step = 4
-	subq %r8, %rdx		# len >= step ?
+	# step = 4
+	# equal to: iaddq $8, %rdx; iaddq $-4, %rdx
+	iaddq $4, %rdx		# len >= step ?
 	jge UnrolledLoop4	# if so, goto UnrolledLoop:
-	addq %r8, %rdx		# restore len
 	jmp RestElements		# goto LoopInit
 
 UnrolledLoop4:
@@ -158,33 +159,31 @@ Npos12:
 	iaddq $32, %rsi		# dst += 4
 
 UnrolledLoop4Test:
-	subq %r8, %rdx		# len -= step, then len >= 0?
-	jge UnrolledLoop4		# if so, goto UnrolledLoop4:
-	addq %r8, %rdx		# restore len
+	iaddq $-4, %rdx		# len >= step?, then len -=step
+	jge UnrolledLoop4	# if so, goto UnrolledLoop4:
+	
 
 RestElements:
-	irmovq $1, %r8		# step = 1
-	mrmovq 0(%rdi), %r10	# read val from src...
-	mrmovq 8(%rdi), %r11	# read val from src...
-	mrmovq 16(%rdi), %r12	# read val from src...
-
-	subq %r8, %rdx			# len < 1 ?; --len
-	jge Element1					# if so, goto Done:
+	# equal to: iaddq $4, %rdx; iaddq $-1, %rdx
+	iaddq $3, %rdx		# restore len
+	jge Element1			# if so, goto Element1:
 	ret
 
 Element1:
+	mrmovq 0(%rdi), %r10	# read val from src...
 	rmmovq %r10, 0(%rsi)	# ...and store it to dst
 	andq %r10, %r10		# val <= 0?
 
 	jle Npos13		# if so, goto Npos:
 	iaddq $1, %rax		# count++
-Npos13:	
+Npos13:
 
-	subq %r8, %rdx			# len < 1 ?; --len
-	jge Element2					# if so, goto Done:
+	iaddq $-1, %rdx			# len < 1 ?; --len
+	jge Element2			# if so, goto Element2:
 	ret
 
-Element2:
+Element2:	
+	mrmovq 8(%rdi), %r11	# read val from src...
 	rmmovq %r11, 8(%rsi)	# ...and store it to dst
 	andq %r11, %r11		# val <= 0?
 
@@ -192,14 +191,16 @@ Element2:
 	iaddq $1, %rax		# count++
 Npos14:
 
-	subq %r8, %rdx			# len < 1 ?; --len
-	jge Element3					# if so, goto Done:
+	iaddq $-1, %rdx			# len < 1 ?; --len
+	jge Element3			# if so, goto Element3:
+	ret
 	
 Element3:
+	mrmovq 16(%rdi), %r12	# read val from src...
 	rmmovq %r12, 16(%rsi)	# ...and store it to dst
 	andq %r12, %r12		# val <= 0?
 
-	jle Done		# if so, goto Npos:
+	jle Done		# if so, goto Done:
 	iaddq $1, %rax		# count++
 
 ##################################################################

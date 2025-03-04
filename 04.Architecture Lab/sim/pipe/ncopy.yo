@@ -22,7 +22,6 @@
                             | ##################################################################
                             | # You can modify this portion
                             | 	# Loop header
-                            | 	#xorq %rax,%rax		# count = 0;
                             | 
 0x000: c0f2fcffffffffffffff | 	iaddq $-4, %rdx		# if len < 4
 0x00a: 727c02000000000000   | 	jl RestElements		# goto RestElements:
