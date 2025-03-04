@@ -1,11 +1,11 @@
 #######################################################################
-# Test for copying block of size 15;
+# Test for copying block of size 2;
 #######################################################################
 	.pos 0
 main:	irmovq Stack, %rsp  	# Set up stack pointer
 
 	# Set up arguments for copy function and then invoke it
-	irmovq $15, %rdx		# src and dst have 15 elements
+	irmovq $2, %rdx		# src and dst have 2 elements
 	irmovq dest, %rsi	# dst array
 	irmovq src, %rdi	# src array
 	call ncopy		 
@@ -40,7 +40,7 @@ UnrolledLoop8Init:
 	subq %r8, %rdx		# len >= step ?
 	jge UnrolledLoop8	# if so, goto UnrolledLoop:
 	addq %r8, %rdx		# restore len
-	jmp LoopInit		# goto LoopInit
+	jmp UnrolledLoop4Init	# goto UnrolledLoop4
 
 UnrolledLoop8:
 	# 1 2
@@ -120,7 +120,7 @@ UnrolledLoop4Init:
 	subq %r8, %rdx		# len >= step ?
 	jge UnrolledLoop4	# if so, goto UnrolledLoop:
 	addq %r8, %rdx		# restore len
-	jmp LoopInit		# goto LoopInit
+	jmp RestElements		# goto LoopInit
 
 UnrolledLoop4:
 	# 1 2
@@ -135,7 +135,7 @@ UnrolledLoop4:
 Npos9:	
 	
 	andq %r11, %r11		# val <= 0?
-	jle Npos2		# if so, goto Npos:
+	jle Npos10		# if so, goto Npos:
 	iaddq $1, %rax		# count++
 Npos10:	
 
@@ -163,24 +163,46 @@ UnrolledLoop4Test:
 	jge UnrolledLoop4		# if so, goto UnrolledLoop4:
 	addq %r8, %rdx		# restore len
 
-LoopInit:
+RestElements:
 	irmovq $1, %r8		# step = 1
-	subq %r8, %rdx		# len >= step ?
-	jge Loop			# if so, goto Loop:
-	jmp Done			# otherwise, goto Done:
+	mrmovq 0(%rdi), %r10	# read val from src...
+	mrmovq 8(%rdi), %r11	# read val from src...
+	mrmovq 16(%rdi), %r12	# read val from src...
 
-Loop:	
-	mrmovq (%rdi), %r10	# read val from src...
-	rmmovq %r10, (%rsi)	# ...and store it to dst
+	subq %r8, %rdx			# len < 1 ?; --len
+	jge Element1					# if so, goto Done:
+	ret
+
+Element1:
+	rmmovq %r10, 0(%rsi)	# ...and store it to dst
 	andq %r10, %r10		# val <= 0?
-	jle Npos		# if so, goto Npos:
+
+	jle Npos13		# if so, goto Npos:
 	iaddq $1, %rax		# count++
-Npos:	
+Npos13:	
+
+	subq %r8, %rdx			# len < 1 ?; --len
+	jge Element2					# if so, goto Done:
+	ret
+
+Element2:
+	rmmovq %r11, 8(%rsi)	# ...and store it to dst
+	andq %r11, %r11		# val <= 0?
+
+	jle Npos14		# if so, goto Npos:
+	iaddq $1, %rax		# count++
+Npos14:
+
+	subq %r8, %rdx			# len < 1 ?; --len
+	jge Element3					# if so, goto Done:
 	
-	iaddq $8, %rdi		# src++
-	iaddq $8, %rsi		# dst++
-	subq %r8, %rdx		# len -= step, then len >= 0?
-	jge Loop			# if so, goto Loop:
+Element3:
+	rmmovq %r12, 16(%rsi)	# ...and store it to dst
+	andq %r12, %r12		# val <= 0?
+
+	jle Done		# if so, goto Npos:
+	iaddq $1, %rax		# count++
+
 ##################################################################
 # Do not modify the following section of code
 # Function epilogue.
@@ -197,7 +219,7 @@ EndFun:
 
 # This is the correctness checking code.
 # It checks:
-#   1. %rax has 10.  Set %rax to 0xbbbb if not.
+#   1. %rax has 1.  Set %rax to 0xbbbb if not.
 #   2. The total length of the code is less than or equal to 1000.
 #      Set %rax to 0xcccc if not.
 #   3. The source data was copied to the destination.
@@ -207,7 +229,7 @@ EndFun:
 # If all checks pass, then sets %rax to 0xaaaa
 check:
 	# Return value test
-	irmovq $10,%r10
+	irmovq $1,%r10
 	subq %r10,%rax
 	je checkb
 	irmovq $0xbbbb,%rax  # Failed test #1
@@ -225,7 +247,7 @@ checkb:
 checkm:
 	irmovq dest, %rdx # Pointer to next destination location
 	irmovq src,%rbx   # Pointer to next source location
-	irmovq $15,%rdi  # Count
+	irmovq $2,%rdi  # Count
 	andq %rdi,%rdi
 	je checkpre         # Skip check if count = 0
 mcloop:
@@ -273,38 +295,12 @@ cdone:
 src:
 	.quad 1
 	.quad -2
-	.quad 3
-	.quad 4
-	.quad 5
-	.quad 6
-	.quad 7
-	.quad 8
-	.quad 9
-	.quad -10
-	.quad 11
-	.quad -12
-	.quad 13
-	.quad -14
-	.quad -15
 	.quad 0xbcdefa # This shouldn't get moved
 
 	.align 16
 Predest:
 	.quad 0xbcdefa
 dest:
-	.quad 0xcdefab
-	.quad 0xcdefab
-	.quad 0xcdefab
-	.quad 0xcdefab
-	.quad 0xcdefab
-	.quad 0xcdefab
-	.quad 0xcdefab
-	.quad 0xcdefab
-	.quad 0xcdefab
-	.quad 0xcdefab
-	.quad 0xcdefab
-	.quad 0xcdefab
-	.quad 0xcdefab
 	.quad 0xcdefab
 	.quad 0xcdefab
 Postdest:

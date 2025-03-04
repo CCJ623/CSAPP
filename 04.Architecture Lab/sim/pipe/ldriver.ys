@@ -33,16 +33,15 @@ ncopy:
 # You can modify this portion
 	# Loop header
 	xorq %rax,%rax		# count = 0;
-	irmovq $1, %r8		# step1 = 1
-	irmovq $8, %r9		# step2 = 8
+	
+UnrolledLoop8Init:
+	irmovq $8, %r8		# step = 8
+	subq %r8, %rdx		# len >= step ?
+	jge UnrolledLoop8	# if so, goto UnrolledLoop:
+	addq %r8, %rdx		# restore len
+	jmp UnrolledLoop4Init	# goto UnrolledLoop4
 
-UnrolledLoopInit:
-	subq %r9, %rdx		# len >= step2 ?
-	jge UnrolledLoop	# if so, goto UnrolledLoop:
-	addq %r9, %rdx		# restore len
-	jmp LoopInit		# goto LoopInit
-
-UnrolledLoop:
+UnrolledLoop8:
 	# 1 2
 	mrmovq 0(%rdi), %r10	# read val from src...
 	mrmovq 8(%rdi), %r11	# read val from src...
@@ -110,28 +109,99 @@ Npos8:
 	iaddq $64, %rdi		# src += 8
 	iaddq $64, %rsi		# dst += 8
 
-UnrolledLoopTest:
-	subq %r9, %rdx		# len -= step2, then len >= 0?
-	jge UnrolledLoop		# if so, goto UnrolledLoop:
-	addq %r9, %rdx		# restore len
+UnrolledLoop8Test:
+	subq %r8, %rdx		# len -= step, then len >= 0?
+	jge UnrolledLoop8		# if so, goto UnrolledLoop8:
+	addq %r8, %rdx		# restore len
 
-LoopInit:
-	subq %r8, %rdx		# len >= step1 ?
-	jge Loop			# if so, goto Loop:
-	jmp Done			# otherwise, goto Done:
+UnrolledLoop4Init:
+	irmovq $4, %r8		# step = 4
+	subq %r8, %rdx		# len >= step ?
+	jge UnrolledLoop4	# if so, goto UnrolledLoop:
+	addq %r8, %rdx		# restore len
+	jmp RestElements		# goto LoopInit
 
-Loop:	
-	mrmovq (%rdi), %r10	# read val from src...
-	rmmovq %r10, (%rsi)	# ...and store it to dst
+UnrolledLoop4:
+	# 1 2
+	mrmovq 0(%rdi), %r10	# read val from src...
+	mrmovq 8(%rdi), %r11	# read val from src...
+	rmmovq %r10, 0(%rsi)	# ...and store it to dst
+	rmmovq %r11, 8(%rsi)	# ...and store it to dst
+
 	andq %r10, %r10		# val <= 0?
-	jle Npos		# if so, goto Npos:
+	jle Npos9		# if so, goto Npos:
 	iaddq $1, %rax		# count++
-Npos:	
+Npos9:	
 	
-	iaddq $8, %rdi		# src++
-	iaddq $8, %rsi		# dst++
-	subq %r8, %rdx		# len -= step1, then len >= 0?
-	jge Loop			# if so, goto Loop:
+	andq %r11, %r11		# val <= 0?
+	jle Npos10		# if so, goto Npos:
+	iaddq $1, %rax		# count++
+Npos10:	
+
+	# 3 4
+	mrmovq 16(%rdi), %r10	# read val from src...
+	mrmovq 24(%rdi), %r11	# read val from src...
+	rmmovq %r10, 16(%rsi)	# ...and store it to dst
+	rmmovq %r11, 24(%rsi)	# ...and store it to dst
+	andq %r10, %r10		# val <= 0?
+
+	jle Npos11		# if so, goto Npos:
+	iaddq $1, %rax		# count++
+Npos11:	
+
+	andq %r11, %r11		# val <= 0?
+	jle Npos12		# if so, goto Npos:
+	iaddq $1, %rax		# count++
+Npos12:
+
+	iaddq $32, %rdi		# src += 4
+	iaddq $32, %rsi		# dst += 4
+
+UnrolledLoop4Test:
+	subq %r8, %rdx		# len -= step, then len >= 0?
+	jge UnrolledLoop4		# if so, goto UnrolledLoop4:
+	addq %r8, %rdx		# restore len
+
+RestElements:
+	irmovq $1, %r8		# step = 1
+	mrmovq 0(%rdi), %r10	# read val from src...
+	mrmovq 8(%rdi), %r11	# read val from src...
+	mrmovq 16(%rdi), %r12	# read val from src...
+
+	subq %r8, %rdx			# len < 1 ?; --len
+	jge Element1					# if so, goto Done:
+	ret
+
+Element1:
+	rmmovq %r10, 0(%rsi)	# ...and store it to dst
+	andq %r10, %r10		# val <= 0?
+
+	jle Npos13		# if so, goto Npos:
+	iaddq $1, %rax		# count++
+Npos13:	
+
+	subq %r8, %rdx			# len < 1 ?; --len
+	jge Element2					# if so, goto Done:
+	ret
+
+Element2:
+	rmmovq %r11, 8(%rsi)	# ...and store it to dst
+	andq %r11, %r11		# val <= 0?
+
+	jle Npos14		# if so, goto Npos:
+	iaddq $1, %rax		# count++
+Npos14:
+
+	subq %r8, %rdx			# len < 1 ?; --len
+	jge Element3					# if so, goto Done:
+	
+Element3:
+	rmmovq %r12, 16(%rsi)	# ...and store it to dst
+	andq %r12, %r12		# val <= 0?
+
+	jle Done		# if so, goto Npos:
+	iaddq $1, %rax		# count++
+
 ##################################################################
 # Do not modify the following section of code
 # Function epilogue.
@@ -148,11 +218,11 @@ EndFun:
 ###############################
 	.align 8
 src:
-	.quad -1
+	.quad 1
 	.quad 2
-	.quad -3
-	.quad 4
-	.quad 5
+	.quad 3
+	.quad -4
+	.quad -5
 	.quad 6
 	.quad 7
 	.quad 8
@@ -160,56 +230,56 @@ src:
 	.quad 10
 	.quad -11
 	.quad 12
-	.quad -13
+	.quad 13
 	.quad -14
-	.quad -15
-	.quad 16
+	.quad 15
+	.quad -16
 	.quad -17
 	.quad 18
-	.quad 19
-	.quad -20
-	.quad -21
-	.quad -22
+	.quad -19
+	.quad 20
+	.quad 21
+	.quad 22
 	.quad 23
-	.quad 24
-	.quad -25
-	.quad 26
-	.quad 27
+	.quad -24
+	.quad 25
+	.quad -26
+	.quad -27
 	.quad -28
-	.quad -29
+	.quad 29
 	.quad 30
-	.quad -31
-	.quad -32
-	.quad 33
-	.quad 34
+	.quad 31
+	.quad 32
+	.quad -33
+	.quad -34
 	.quad -35
-	.quad 36
-	.quad 37
+	.quad -36
+	.quad -37
 	.quad -38
 	.quad -39
-	.quad 40
+	.quad -40
 	.quad 41
-	.quad -42
-	.quad 43
+	.quad 42
+	.quad -43
 	.quad -44
-	.quad -45
-	.quad -46
-	.quad -47
-	.quad 48
+	.quad 45
+	.quad 46
+	.quad 47
+	.quad -48
 	.quad -49
-	.quad 50
-	.quad -51
-	.quad 52
+	.quad -50
+	.quad 51
+	.quad -52
 	.quad -53
 	.quad -54
 	.quad 55
-	.quad 56
-	.quad 57
-	.quad 58
-	.quad -59
+	.quad -56
+	.quad -57
+	.quad -58
+	.quad 59
 	.quad -60
-	.quad -61
-	.quad -62
+	.quad 61
+	.quad 62
 	.quad -63
 	.quad 0xbcdefa # This shouldn't get moved
 

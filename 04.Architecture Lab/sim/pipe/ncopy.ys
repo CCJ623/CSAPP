@@ -10,6 +10,7 @@
 # make first jump to Loop to avoid mispredicted in most situations
 # unroll loop
 # pair read/write to avoid load/use hazard
+# unroll rest elements
 ##################################################################
 # Do not modify this portion
 # Function prologue.
@@ -26,7 +27,7 @@ UnrolledLoop8Init:
 	subq %r8, %rdx		# len >= step ?
 	jge UnrolledLoop8	# if so, goto UnrolledLoop:
 	addq %r8, %rdx		# restore len
-	jmp LoopInit		# goto LoopInit
+	jmp UnrolledLoop4Init	# goto UnrolledLoop4
 
 UnrolledLoop8:
 	# 1 2
@@ -106,7 +107,7 @@ UnrolledLoop4Init:
 	subq %r8, %rdx		# len >= step ?
 	jge UnrolledLoop4	# if so, goto UnrolledLoop:
 	addq %r8, %rdx		# restore len
-	jmp LoopInit		# goto LoopInit
+	jmp RestElements		# goto LoopInit
 
 UnrolledLoop4:
 	# 1 2
@@ -149,26 +150,46 @@ UnrolledLoop4Test:
 	jge UnrolledLoop4		# if so, goto UnrolledLoop4:
 	addq %r8, %rdx		# restore len
 
-LoopInit:
+RestElements:
 	irmovq $1, %r8		# step = 1
-	subq %r8, %rdx		# len >= step ?
-	jge Loop			# if so, goto Loop:
-	jmp Done			# otherwise, goto Done:
-
-Loop:	
-	mrmovq (%rdi), %r10	# read val from src...
-	rmmovq %r10, (%rsi)	# ...and store it to dst
-	andq %r10, %r10		# val <= 0?
-	jle Npos		# if so, goto Npos:
-	iaddq $1, %rax		# count++
-Npos:	
 	
-	iaddq $8, %rdi		# src++
-	iaddq $8, %rsi		# dst++
+	mrmovq 0(%rdi), %r10	# read val from src...
+	subq %r8, %rdx			# len < 1 ?; --len
+	jge Element1			# if so, goto Element1:
+	ret
 
-LoopTest:
-	subq %r8, %rdx		# len -= step, then len >= 0?
-	jge Loop			# if so, goto Loop:
+Element1:
+	rmmovq %r10, 0(%rsi)	# ...and store it to dst
+	andq %r10, %r10		# val <= 0?
+
+	jle Npos13		# if so, goto Npos:
+	iaddq $1, %rax		# count++
+Npos13:	
+	mrmovq 8(%rdi), %r11	# read val from src...
+	subq %r8, %rdx			# len < 1 ?; --len
+	jge Element2			# if so, goto Element2:
+	ret
+
+Element2:
+	rmmovq %r11, 8(%rsi)	# ...and store it to dst
+	andq %r11, %r11		# val <= 0?
+
+	jle Npos14		# if so, goto Npos:
+	iaddq $1, %rax		# count++
+Npos14:
+
+	mrmovq 16(%rdi), %r12	# read val from src...
+	subq %r8, %rdx			# len < 1 ?; --len
+	jge Element3			# if so, goto Element3:
+	ret
+	
+Element3:
+	rmmovq %r12, 16(%rsi)	# ...and store it to dst
+	andq %r12, %r12		# val <= 0?
+
+	jle Done		# if so, goto Done:
+	iaddq $1, %rax		# count++
+
 ##################################################################
 # Do not modify the following section of code
 # Function epilogue.
