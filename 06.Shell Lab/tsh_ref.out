@@ -1,0 +1,278 @@
+#
+# trace01.txt - Properly terminate on EOF.
+#
+#
+# trace02.txt - Process builtin quit command.
+#
+#
+# trace03.txt - Run a foreground job.
+#
+tsh> quit
+#
+# trace04.txt - Run a background job.
+#
+tsh> ./myspin 1 &
+[1] (204493) ./myspin 1 &
+#
+# trace05.txt - Process jobs builtin command.
+#
+tsh> ./myspin 2 &
+[1] (204567) ./myspin 2 &
+tsh> ./myspin 3 &
+[2] (204569) ./myspin 3 &
+tsh> jobs
+[1] (204567) Running ./myspin 2 &
+[2] (204569) Running ./myspin 3 &
+#
+# trace06.txt - Forward SIGINT to foreground job.
+#
+tsh> ./myspin 4
+Job [1] (204626) terminated by signal 2
+#
+# trace07.txt - Forward SIGINT only to foreground job.
+#
+tsh> ./myspin 4 &
+[1] (204691) ./myspin 4 &
+tsh> ./myspin 5
+Job [2] (204693) terminated by signal 2
+tsh> jobs
+[1] (204691) Running ./myspin 4 &
+#
+# trace08.txt - Forward SIGTSTP only to foreground job.
+#
+tsh> ./myspin 4 &
+[1] (204812) ./myspin 4 &
+tsh> ./myspin 5
+Job [2] (204814) stopped by signal 20
+tsh> jobs
+[1] (204812) Running ./myspin 4 &
+[2] (204814) Stopped ./myspin 5 
+#
+# trace09.txt - Process bg builtin command
+#
+tsh> ./myspin 4 &
+[1] (204894) ./myspin 4 &
+tsh> ./myspin 5
+Job [2] (204896) stopped by signal 20
+tsh> jobs
+[1] (204894) Running ./myspin 4 &
+[2] (204896) Stopped ./myspin 5 
+tsh> bg %2
+[2] (204896) ./myspin 5 
+tsh> jobs
+[1] (204894) Running ./myspin 4 &
+[2] (204896) Running ./myspin 5 
+#
+# trace10.txt - Process fg builtin command. 
+#
+tsh> ./myspin 4 &
+[1] (204974) ./myspin 4 &
+tsh> fg %1
+Job [1] (204974) stopped by signal 20
+tsh> jobs
+[1] (204974) Stopped ./myspin 4 &
+tsh> fg %1
+tsh> jobs
+#
+# trace11.txt - Forward SIGINT to every process in foreground process group
+#
+tsh> ./mysplit 4
+Job [1] (205039) terminated by signal 2
+tsh> /bin/ps a
+    PID TTY      STAT   TIME COMMAND
+    268 hvc0     Ss+    0:00 /sbin/agetty -o -p -- \u --noclear --keep-baud console 115200,38400,9600 vt220
+    270 tty1     Ss+    0:00 /sbin/agetty -o -p -- \u --noclear tty1 linux
+    416 pts/1    Ss     0:00 /bin/login -f
+    425 pts/1    S+     0:00 -bash
+    438 pts/0    Ss+    0:00 sh -c "$VSCODE_WSL_EXT_LOCATION/scripts/wslServer.sh" ddc367ed5c8936efe395cffeec279b04ffd7db78 stable code-server .vscode-server --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    439 pts/0    S+     0:00 sh /mnt/c/Users/Jay/.vscode/extensions/ms-vscode-remote.remote-wsl-0.88.5/scripts/wslServer.sh ddc367ed5c8936efe395cffeec279b04ffd7db78 stable code-server .vscode-server --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    444 pts/0    S+     0:00 sh /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/bin/code-server --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    448 pts/0    Sl+    0:31 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/server-main.js --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    468 pts/0    Sl+    0:34 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/bootstrap-fork --type=ptyHost --logsPath /home/jay/.vscode-server/data/logs/20250316T105253
+    496 pts/0    Sl+    0:02 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/bootstrap-fork --type=fileWatcher
+    519 pts/0    Sl+   14:05 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node --dns-result-order=ipv4first /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/bootstrap-fork --type=extensionHost --transformURIs --useHostProxy=true
+    565 pts/0    Sl+    4:44 /home/jay/.vscode-server/extensions/ms-vscode.cpptools-1.23.6-linux-x64/bin/cpptools
+    608 pts/0    Sl+    0:01 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/extensions/json-language-features/server/dist/node/jsonServerMain --node-ipc --clientProcessId=519
+    857 pts/0    Sl+    7:09 /home/jay/.vscode-server/extensions/ms-vscode.cpptools-1.23.6-linux-x64/bin/cpptools-srv 565 {6343F6F7-6928-43E6-95D7-95FB017BDCC8}
+ 174314 pts/4    Ss     0:00 /usr/bin/bash --init-file /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh
+ 189239 pts/4    T      0:00 make test
+ 189242 pts/4    T      0:00 /bin/sh -c for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16; do \ ?echo "Running test$i..." ; \ ?./sdriver.pl -t trace$i.txt -s ./tsh -a "-p" >> ./tsh.out 2>&1 ; \ ?./sdriver.pl -t trace$i.txt -s ./tshref -a "-p" >> ./tsh_ref.out 2>&1 ; \ done
+ 189319 pts/4    T      0:00 /usr/bin/perl ./sdriver.pl -t trace05.txt -s ./tshref -a -p
+ 189320 pts/4    Z      0:00 [tshref] <defunct>
+ 192267 pts/2    Ssl+   0:01 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node -e const net = require('net'); process.stdin.pause(); const client = net.createConnection({ host: '127.0.0.1', port: 41467 }, () => { client.pipe(process.stdout); process.stdin.pipe(client); }); client.on('close', function (hadError) { console.error(hadError ? 'Remote close with error' : 'Remote close'); process.exit(hadError ? 1 : 0); }); client.on('error', function (err) { process.stderr.write(err && (err.stack || err.message) || String(err)); });
+ 192276 pts/3    Ssl+   0:00 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node -e const net = require('net'); process.stdin.pause(); const client = net.createConnection({ host: '127.0.0.1', port: 41467 }, () => { client.pipe(process.stdout); process.stdin.pipe(client); }); client.on('close', function (hadError) { console.error(hadError ? 'Remote close with error' : 'Remote close'); process.exit(hadError ? 1 : 0); }); client.on('error', function (err) { process.stderr.write(err && (err.stack || err.message) || String(err)); });
+ 204440 pts/4    S+     0:00 make test
+ 204454 pts/4    S+     0:00 /bin/sh -c for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16; do \ ?echo "Running test$i..." ; \ ?./sdriver.pl -t trace$i.txt -s ./tsh -a "-p" >> ./tsh.out 2>&1 ; \ ?./sdriver.pl -t trace$i.txt -s ./tshref -a "-p" >> ./tsh_ref.out 2>&1 ; \ done
+ 205023 pts/4    S+     0:00 /usr/bin/perl ./sdriver.pl -t trace11.txt -s ./tshref -a -p
+ 205037 pts/4    S+     0:00 ./tshref -p
+ 205048 pts/4    R      0:00 /bin/ps a
+#
+# trace12.txt - Forward SIGTSTP to every process in foreground process group
+#
+tsh> ./mysplit 4
+Job [1] (205085) stopped by signal 20
+tsh> jobs
+[1] (205085) Stopped ./mysplit 4 
+tsh> /bin/ps a
+    PID TTY      STAT   TIME COMMAND
+    268 hvc0     Ss+    0:00 /sbin/agetty -o -p -- \u --noclear --keep-baud console 115200,38400,9600 vt220
+    270 tty1     Ss+    0:00 /sbin/agetty -o -p -- \u --noclear tty1 linux
+    416 pts/1    Ss     0:00 /bin/login -f
+    425 pts/1    S+     0:00 -bash
+    438 pts/0    Ss+    0:00 sh -c "$VSCODE_WSL_EXT_LOCATION/scripts/wslServer.sh" ddc367ed5c8936efe395cffeec279b04ffd7db78 stable code-server .vscode-server --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    439 pts/0    S+     0:00 sh /mnt/c/Users/Jay/.vscode/extensions/ms-vscode-remote.remote-wsl-0.88.5/scripts/wslServer.sh ddc367ed5c8936efe395cffeec279b04ffd7db78 stable code-server .vscode-server --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    444 pts/0    S+     0:00 sh /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/bin/code-server --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    448 pts/0    Sl+    0:31 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/server-main.js --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    468 pts/0    Sl+    0:34 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/bootstrap-fork --type=ptyHost --logsPath /home/jay/.vscode-server/data/logs/20250316T105253
+    496 pts/0    Sl+    0:02 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/bootstrap-fork --type=fileWatcher
+    519 pts/0    Sl+   14:05 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node --dns-result-order=ipv4first /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/bootstrap-fork --type=extensionHost --transformURIs --useHostProxy=true
+    565 pts/0    Sl+    4:44 /home/jay/.vscode-server/extensions/ms-vscode.cpptools-1.23.6-linux-x64/bin/cpptools
+    608 pts/0    Sl+    0:01 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/extensions/json-language-features/server/dist/node/jsonServerMain --node-ipc --clientProcessId=519
+    857 pts/0    Sl+    7:09 /home/jay/.vscode-server/extensions/ms-vscode.cpptools-1.23.6-linux-x64/bin/cpptools-srv 565 {6343F6F7-6928-43E6-95D7-95FB017BDCC8}
+ 174314 pts/4    Ss     0:00 /usr/bin/bash --init-file /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh
+ 189239 pts/4    T      0:00 make test
+ 189242 pts/4    T      0:00 /bin/sh -c for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16; do \ ?echo "Running test$i..." ; \ ?./sdriver.pl -t trace$i.txt -s ./tsh -a "-p" >> ./tsh.out 2>&1 ; \ ?./sdriver.pl -t trace$i.txt -s ./tshref -a "-p" >> ./tsh_ref.out 2>&1 ; \ done
+ 189319 pts/4    T      0:00 /usr/bin/perl ./sdriver.pl -t trace05.txt -s ./tshref -a -p
+ 189320 pts/4    Z      0:00 [tshref] <defunct>
+ 192267 pts/2    Ssl+   0:01 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node -e const net = require('net'); process.stdin.pause(); const client = net.createConnection({ host: '127.0.0.1', port: 41467 }, () => { client.pipe(process.stdout); process.stdin.pipe(client); }); client.on('close', function (hadError) { console.error(hadError ? 'Remote close with error' : 'Remote close'); process.exit(hadError ? 1 : 0); }); client.on('error', function (err) { process.stderr.write(err && (err.stack || err.message) || String(err)); });
+ 192276 pts/3    Ssl+   0:00 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node -e const net = require('net'); process.stdin.pause(); const client = net.createConnection({ host: '127.0.0.1', port: 41467 }, () => { client.pipe(process.stdout); process.stdin.pipe(client); }); client.on('close', function (hadError) { console.error(hadError ? 'Remote close with error' : 'Remote close'); process.exit(hadError ? 1 : 0); }); client.on('error', function (err) { process.stderr.write(err && (err.stack || err.message) || String(err)); });
+ 204440 pts/4    S+     0:00 make test
+ 204454 pts/4    S+     0:00 /bin/sh -c for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16; do \ ?echo "Running test$i..." ; \ ?./sdriver.pl -t trace$i.txt -s ./tsh -a "-p" >> ./tsh.out 2>&1 ; \ ?./sdriver.pl -t trace$i.txt -s ./tshref -a "-p" >> ./tsh_ref.out 2>&1 ; \ done
+ 205082 pts/4    S+     0:00 /usr/bin/perl ./sdriver.pl -t trace12.txt -s ./tshref -a -p
+ 205083 pts/4    S+     0:00 ./tshref -p
+ 205085 pts/4    T      0:00 ./mysplit 4
+ 205086 pts/4    T      0:00 ./mysplit 4
+ 205114 pts/4    R      0:00 /bin/ps a
+#
+# trace13.txt - Restart every stopped process in process group
+#
+tsh> ./mysplit 4
+Job [1] (205183) stopped by signal 20
+tsh> jobs
+[1] (205183) Stopped ./mysplit 4 
+tsh> /bin/ps a
+    PID TTY      STAT   TIME COMMAND
+    268 hvc0     Ss+    0:00 /sbin/agetty -o -p -- \u --noclear --keep-baud console 115200,38400,9600 vt220
+    270 tty1     Ss+    0:00 /sbin/agetty -o -p -- \u --noclear tty1 linux
+    416 pts/1    Ss     0:00 /bin/login -f
+    425 pts/1    S+     0:00 -bash
+    438 pts/0    Ss+    0:00 sh -c "$VSCODE_WSL_EXT_LOCATION/scripts/wslServer.sh" ddc367ed5c8936efe395cffeec279b04ffd7db78 stable code-server .vscode-server --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    439 pts/0    S+     0:00 sh /mnt/c/Users/Jay/.vscode/extensions/ms-vscode-remote.remote-wsl-0.88.5/scripts/wslServer.sh ddc367ed5c8936efe395cffeec279b04ffd7db78 stable code-server .vscode-server --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    444 pts/0    S+     0:00 sh /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/bin/code-server --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    448 pts/0    Sl+    0:31 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/server-main.js --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    468 pts/0    Sl+    0:34 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/bootstrap-fork --type=ptyHost --logsPath /home/jay/.vscode-server/data/logs/20250316T105253
+    496 pts/0    Sl+    0:02 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/bootstrap-fork --type=fileWatcher
+    519 pts/0    Sl+   14:06 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node --dns-result-order=ipv4first /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/bootstrap-fork --type=extensionHost --transformURIs --useHostProxy=true
+    565 pts/0    Sl+    4:44 /home/jay/.vscode-server/extensions/ms-vscode.cpptools-1.23.6-linux-x64/bin/cpptools
+    608 pts/0    Sl+    0:01 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/extensions/json-language-features/server/dist/node/jsonServerMain --node-ipc --clientProcessId=519
+    857 pts/0    Sl+    7:09 /home/jay/.vscode-server/extensions/ms-vscode.cpptools-1.23.6-linux-x64/bin/cpptools-srv 565 {6343F6F7-6928-43E6-95D7-95FB017BDCC8}
+ 174314 pts/4    Ss     0:00 /usr/bin/bash --init-file /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh
+ 189239 pts/4    T      0:00 make test
+ 189242 pts/4    T      0:00 /bin/sh -c for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16; do \ ?echo "Running test$i..." ; \ ?./sdriver.pl -t trace$i.txt -s ./tsh -a "-p" >> ./tsh.out 2>&1 ; \ ?./sdriver.pl -t trace$i.txt -s ./tshref -a "-p" >> ./tsh_ref.out 2>&1 ; \ done
+ 189319 pts/4    T      0:00 /usr/bin/perl ./sdriver.pl -t trace05.txt -s ./tshref -a -p
+ 189320 pts/4    Z      0:00 [tshref] <defunct>
+ 192267 pts/2    Ssl+   0:01 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node -e const net = require('net'); process.stdin.pause(); const client = net.createConnection({ host: '127.0.0.1', port: 41467 }, () => { client.pipe(process.stdout); process.stdin.pipe(client); }); client.on('close', function (hadError) { console.error(hadError ? 'Remote close with error' : 'Remote close'); process.exit(hadError ? 1 : 0); }); client.on('error', function (err) { process.stderr.write(err && (err.stack || err.message) || String(err)); });
+ 192276 pts/3    Ssl+   0:00 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node -e const net = require('net'); process.stdin.pause(); const client = net.createConnection({ host: '127.0.0.1', port: 41467 }, () => { client.pipe(process.stdout); process.stdin.pipe(client); }); client.on('close', function (hadError) { console.error(hadError ? 'Remote close with error' : 'Remote close'); process.exit(hadError ? 1 : 0); }); client.on('error', function (err) { process.stderr.write(err && (err.stack || err.message) || String(err)); });
+ 204440 pts/4    S+     0:00 make test
+ 204454 pts/4    S+     0:00 /bin/sh -c for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16; do \ ?echo "Running test$i..." ; \ ?./sdriver.pl -t trace$i.txt -s ./tsh -a "-p" >> ./tsh.out 2>&1 ; \ ?./sdriver.pl -t trace$i.txt -s ./tshref -a "-p" >> ./tsh_ref.out 2>&1 ; \ done
+ 205180 pts/4    S+     0:00 /usr/bin/perl ./sdriver.pl -t trace13.txt -s ./tshref -a -p
+ 205181 pts/4    S+     0:00 ./tshref -p
+ 205183 pts/4    T      0:00 ./mysplit 4
+ 205184 pts/4    T      0:00 ./mysplit 4
+ 205193 pts/4    R      0:00 /bin/ps a
+tsh> fg %1
+tsh> /bin/ps a
+    PID TTY      STAT   TIME COMMAND
+    268 hvc0     Ss+    0:00 /sbin/agetty -o -p -- \u --noclear --keep-baud console 115200,38400,9600 vt220
+    270 tty1     Ss+    0:00 /sbin/agetty -o -p -- \u --noclear tty1 linux
+    416 pts/1    Ss     0:00 /bin/login -f
+    425 pts/1    S+     0:00 -bash
+    438 pts/0    Ss+    0:00 sh -c "$VSCODE_WSL_EXT_LOCATION/scripts/wslServer.sh" ddc367ed5c8936efe395cffeec279b04ffd7db78 stable code-server .vscode-server --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    439 pts/0    S+     0:00 sh /mnt/c/Users/Jay/.vscode/extensions/ms-vscode-remote.remote-wsl-0.88.5/scripts/wslServer.sh ddc367ed5c8936efe395cffeec279b04ffd7db78 stable code-server .vscode-server --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    444 pts/0    S+     0:00 sh /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/bin/code-server --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    448 pts/0    Sl+    0:31 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/server-main.js --host=127.0.0.1 --port=0 --connection-token=2056659074-2693675957-3006570051-238051692 --use-host-proxy --without-browser-env-var --disable-websocket-compression --accept-server-license-terms --telemetry-level=all
+    468 pts/0    Sl+    0:34 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/bootstrap-fork --type=ptyHost --logsPath /home/jay/.vscode-server/data/logs/20250316T105253
+    496 pts/0    Sl+    0:02 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/bootstrap-fork --type=fileWatcher
+    519 pts/0    Sl+   14:06 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node --dns-result-order=ipv4first /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/bootstrap-fork --type=extensionHost --transformURIs --useHostProxy=true
+    565 pts/0    Sl+    4:44 /home/jay/.vscode-server/extensions/ms-vscode.cpptools-1.23.6-linux-x64/bin/cpptools
+    608 pts/0    Sl+    0:01 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/extensions/json-language-features/server/dist/node/jsonServerMain --node-ipc --clientProcessId=519
+    857 pts/0    Sl+    7:09 /home/jay/.vscode-server/extensions/ms-vscode.cpptools-1.23.6-linux-x64/bin/cpptools-srv 565 {6343F6F7-6928-43E6-95D7-95FB017BDCC8}
+ 174314 pts/4    Ss     0:00 /usr/bin/bash --init-file /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/out/vs/workbench/contrib/terminal/common/scripts/shellIntegration-bash.sh
+ 189239 pts/4    T      0:00 make test
+ 189242 pts/4    T      0:00 /bin/sh -c for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16; do \ ?echo "Running test$i..." ; \ ?./sdriver.pl -t trace$i.txt -s ./tsh -a "-p" >> ./tsh.out 2>&1 ; \ ?./sdriver.pl -t trace$i.txt -s ./tshref -a "-p" >> ./tsh_ref.out 2>&1 ; \ done
+ 189319 pts/4    T      0:00 /usr/bin/perl ./sdriver.pl -t trace05.txt -s ./tshref -a -p
+ 189320 pts/4    Z      0:00 [tshref] <defunct>
+ 192267 pts/2    Ssl+   0:01 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node -e const net = require('net'); process.stdin.pause(); const client = net.createConnection({ host: '127.0.0.1', port: 41467 }, () => { client.pipe(process.stdout); process.stdin.pipe(client); }); client.on('close', function (hadError) { console.error(hadError ? 'Remote close with error' : 'Remote close'); process.exit(hadError ? 1 : 0); }); client.on('error', function (err) { process.stderr.write(err && (err.stack || err.message) || String(err)); });
+ 192276 pts/3    Ssl+   0:00 /home/jay/.vscode-server/bin/ddc367ed5c8936efe395cffeec279b04ffd7db78/node -e const net = require('net'); process.stdin.pause(); const client = net.createConnection({ host: '127.0.0.1', port: 41467 }, () => { client.pipe(process.stdout); process.stdin.pipe(client); }); client.on('close', function (hadError) { console.error(hadError ? 'Remote close with error' : 'Remote close'); process.exit(hadError ? 1 : 0); }); client.on('error', function (err) { process.stderr.write(err && (err.stack || err.message) || String(err)); });
+ 204440 pts/4    S+     0:00 make test
+ 204454 pts/4    S+     0:00 /bin/sh -c for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16; do \ ?echo "Running test$i..." ; \ ?./sdriver.pl -t trace$i.txt -s ./tsh -a "-p" >> ./tsh.out 2>&1 ; \ ?./sdriver.pl -t trace$i.txt -s ./tshref -a "-p" >> ./tsh_ref.out 2>&1 ; \ done
+ 205180 pts/4    D+     0:00 /usr/bin/perl ./sdriver.pl -t trace13.txt -s ./tshref -a -p
+ 205181 pts/4    S+     0:00 ./tshref -p
+ 205202 pts/4    R      0:00 /bin/ps a
+#
+# trace14.txt - Simple error handling
+#
+tsh> ./bogus
+./bogus: Command not found
+tsh> ./myspin 4 &
+[1] (205273) ./myspin 4 &
+tsh> fg
+fg command requires PID or %jobid argument
+tsh> bg
+bg command requires PID or %jobid argument
+tsh> fg a
+fg: argument must be a PID or %jobid
+tsh> bg a
+bg: argument must be a PID or %jobid
+tsh> fg 9999999
+(9999999): No such process
+tsh> bg 9999999
+(9999999): No such process
+tsh> fg %2
+%2: No such job
+tsh> fg %1
+Job [1] (205273) stopped by signal 20
+tsh> bg %2
+%2: No such job
+tsh> bg %1
+[1] (205273) ./myspin 4 &
+tsh> jobs
+[1] (205273) Running ./myspin 4 &
+#
+# trace15.txt - Putting it all together
+#
+tsh> ./bogus
+./bogus: Command not found
+tsh> ./myspin 10
+Job [1] (205373) terminated by signal 2
+tsh> ./myspin 3 &
+[1] (205381) ./myspin 3 &
+tsh> ./myspin 4 &
+[2] (205383) ./myspin 4 &
+tsh> jobs
+[1] (205381) Running ./myspin 3 &
+[2] (205383) Running ./myspin 4 &
+tsh> fg %1
+Job [1] (205381) stopped by signal 20
+tsh> jobs
+[1] (205381) Stopped ./myspin 3 &
+[2] (205383) Running ./myspin 4 &
+tsh> bg %3
+%3: No such job
+tsh> bg %1
+[1] (205381) ./myspin 3 &
+tsh> jobs
+[1] (205381) Running ./myspin 3 &
+[2] (205383) Running ./myspin 4 &
+tsh> fg %1
+tsh> quit
+#
+# trace16.txt - Tests whether the shell can handle SIGTSTP and SIGINT
+#     signals that come from other processes instead of the terminal.
+#
+tsh> ./mystop 2
+Job [1] (205465) stopped by signal 20
+tsh> jobs
+[1] (205465) Stopped ./mystop 2
+tsh> ./myint 2
+Job [2] (205474) terminated by signal 2
