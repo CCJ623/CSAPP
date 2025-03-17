@@ -8,8 +8,10 @@ TSH = ./tsh
 TSHREF = ./tshref
 TSHARGS = "-p"
 CC = gcc
-CFLAGS = -Wall -O0
+CFLAGS = -Wall -O2
 FILES = $(TSH) ./myspin ./mysplit ./mystop ./myint
+OUTFILE = ./tsh.out
+REFOUTFILE = ./tsh_ref.out
 
 all: $(FILES)
 
@@ -92,6 +94,18 @@ rtest15:
 rtest16:
 	$(DRIVER) -t trace16.txt -s $(TSHREF) -a $(TSHARGS)
 
+test: all
+	@> $(OUTFILE)
+	@> $(REFOUTFILE)
+	@for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16; do \
+		echo "Running test$$i..." ; \
+		$(DRIVER) -t trace$$i.txt -s $(TSH) -a $(TSHARGS) >> $(OUTFILE) 2>&1 ; \
+		$(DRIVER) -t trace$$i.txt -s $(TSHREF) -a $(TSHARGS) >> $(REFOUTFILE) 2>&1 ; \
+	done
+	@echo "All tests output saved to $(OUTFILE) and $(REFOUTFILE)"
+
+diff:
+	@-diff $(OUTFILE) $(REFOUTFILE)
 
 # clean up
 clean:

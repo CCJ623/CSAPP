@@ -87,6 +87,12 @@ void app_error(char* msg);
 typedef void handler_t(int);
 handler_t* Signal(int signum, handler_t* handler);
 
+void reach()
+{
+    printf("%d reaches here\n", getpid());
+    fflush(stdout);
+}
+
 /*
  * main - The shell's main routine
  */
@@ -179,29 +185,53 @@ void eval(char* cmdline)
         return;
     }
 
+    // replace \n
+    cmdline[strlen(cmdline) - 1] = ' ';
 
     pid_t pid;
+    sigset_t all_signal, child_signal, previous_signal;
+    sigfillset(&all_signal);
+    sigemptyset(&child_signal);
+    sigaddset(&child_signal, SIGCHLD);
+
+    // block SIGCHLD
+    sigprocmask(SIG_BLOCK, &child_signal, &previous_signal);
+
     // child process
     if ((pid = fork()) == 0)
     {
+        // restore signal in child process
+        sigprocmask(SIG_SETMASK, &previous_signal, NULL);
+        // create another process group
         setpgid(0, 0);
         if (execve(argv[0], argv, environ) < 0)
         {
-            printf("%s: Command not found.\n", argv[0]);
-            sleep(1);
+            printf("%s: Command not found\n", argv[0]);
             exit(0);
         }
     }
 
+
+    // block every signals to protect addjob function
+    sigprocmask(SIG_BLOCK, &all_signal, NULL);
+
     addjob(jobs, pid, (background ? BG : FG), cmdline);
+
+    // restore previous signals
+    sigprocmask(SIG_SETMASK, &previous_signal, NULL);
+
     if (background)
     {
-
+        printf("[%d] (%d) %s\n", pid2jid(pid), pid, cmdline);
+        // unblock child signal
+        sigprocmask(SIG_UNBLOCK, &child_signal, NULL);
         return;
     }
 
     // wait for foreground process
     waitfg(pid);
+    // unblock child signal
+    sigprocmask(SIG_UNBLOCK, &child_signal, NULL);
 
     return;
 }
@@ -300,26 +330,41 @@ int builtin_cmd(char** argv)
  */
 void do_bgfg(char** argv)
 {
-    const char* command = argv[0], * id = argv[1];
-    if (command == NULL || id == NULL)
+    const char* command = argv[0], * str_id = argv[1];
+    if (command == NULL || str_id == NULL)
     {
-        printf("bad arguments\n");
+        printf("%s command requires PID or %%jobid argument\n", command);
+        return;
+    }
+    int int_id;
+    if (str_id[0] == '%')
+    {
+        int_id = strtol(str_id + 1, NULL, 10);
+    }
+    else
+    {
+        int_id = strtol(str_id, NULL, 10);
+    }
+    if (int_id == 0)
+    {
+        printf("%s: argument must be a PID or %%jobid\n", command);
         return;
     }
     // find target job
     struct job_t* target_job;
-    if (id[0] == '%')
-    {
-        target_job = getjobjid(jobs, strtol(id + 1, NULL, 10));
-    }
-    else
-    {
-        target_job = getjobpid(jobs, strtol(id, NULL, 10));
-    }
+    target_job = getjobjid(jobs, int_id);
+
     // can't find target job
     if (target_job == NULL)
     {
-        printf("No such job\n");
+        if (str_id[0] == '%')
+        {
+            printf("%%%d: No such job\n", int_id);
+        }
+        else
+        {
+            printf("(%d): No such process\n", int_id);
+        }
         return;
     }
     if (strcmp(command, "fg") == 0)
@@ -344,18 +389,14 @@ void do_bgfg(char** argv)
     {
         if (target_job->state != ST && target_job->state != BG)
         {
-            printf("can't change to bakcground");
+            printf("can't change to background");
             return;
         }
 
         // change target job to background process
         target_job->state = BG;
         kill(target_job->pid, SIGCONT);
-        // wait for foreground job to terminate
-        if (waitpid(target_job->pid, NULL, 0) < 0)
-        {
-            unix_error("waitfg: waitpid error");
-        }
+        printf("[%d] (%d) %s\n", target_job->jid, target_job->pid, target_job->cmdline);
     }
     else
     {
@@ -371,11 +412,21 @@ void do_bgfg(char** argv)
 void waitfg(pid_t pid)
 {
     // wait for foreground job to terminate
-    // do clean job in the meantime
     struct job_t* foreground_job = getjobpid(jobs, pid);
-    while (foreground_job->state != UNDEF)
+    if (foreground_job == NULL)
     {
-        sleep(0.5);
+        return;
+    }
+    sigset_t no_block;
+    sigemptyset(&no_block);
+    while (foreground_job->state == FG)
+    {
+        //printf("waiting for signals...\n");
+        //fflush(stdout);
+        sigsuspend(&no_block);
+        //reach();
+        //printf("foreground job state: %d\n", foreground_job->state);
+        //fflush(stdout);
     }
 }
 
@@ -393,16 +444,37 @@ void waitfg(pid_t pid)
 void sigchld_handler(int sig)
 {
     int olderrno = errno;
+    sigset_t all_signal, previous;
+    // block all signal
+    sigfillset(&all_signal);
+    sigprocmask(SIG_BLOCK, &all_signal, &previous);
+
     pid_t pid;
-    while ((pid = waitpid(-1, NULL, 0)) > 0)
+    int status;
+    while ((pid = waitpid(-1, &status, WNOHANG | WUNTRACED)) > 0)
     {
-        deletejob(jobs, pid);
+        // exit normally
+        if (WIFEXITED(status))
+        {
+            deletejob(jobs, pid);
+        }
+        // terminated by a signal
+        else if (WIFSIGNALED(status))
+        {
+            printf("Job [%d] (%d) terminated by signal %d\n", pid2jid(pid), pid, WTERMSIG(status));
+            deletejob(jobs, pid);
+        }
+        // stopped by a signal
+        else if (WIFSTOPPED(status))
+        {
+            printf("Job [%d] (%d) stopped by signal %d\n", pid2jid(pid), pid, WSTOPSIG(status));
+            getjobpid(jobs, pid)->state = ST;
+        }
     }
-    if (errno != ECHILD)
-    {
-        unix_error("waitfg: waitpid error");
-    }
+
     errno = olderrno;
+    // restore previous signal
+    sigprocmask(SIG_SETMASK, &previous, NULL);
     return;
 }
 
@@ -413,12 +485,22 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig)
 {
+    int olderrno = errno;
+    sigset_t all_signal, previous;
+    // block all signal
+    sigfillset(&all_signal);
+    sigprocmask(SIG_BLOCK, &all_signal, &previous);
+
     pid_t pid = fgpid(jobs);
     if (pid == 0)
     {
         return;
     }
-    kill(pid, SIGKILL);
+    kill(-pid, SIGINT);
+
+    errno = olderrno;
+    // restore previous signal
+    sigprocmask(SIG_SETMASK, &previous, NULL);
     return;
 }
 
@@ -429,13 +511,22 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig)
 {
+    int olderrno = errno;
+    sigset_t all_signal, previous;
+    // block all signal
+    sigfillset(&all_signal);
+    sigprocmask(SIG_BLOCK, &all_signal, &previous);
+
     pid_t pid = fgpid(jobs);
     if (pid == 0)
     {
         return;
     }
     kill(pid, SIGTSTP);
-    return;
+
+    errno = olderrno;
+    // restore previous signal
+    sigprocmask(SIG_SETMASK, &previous, NULL);
     return;
 }
 
@@ -602,7 +693,7 @@ void listjobs(struct job_t* jobs)
                 printf("listjobs: Internal error: job[%d].state=%d ",
                     i, jobs[i].state);
             }
-            printf("%s", jobs[i].cmdline);
+            printf("%s\n", jobs[i].cmdline);
         }
     }
 }
