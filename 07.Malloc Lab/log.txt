@@ -1,0 +1,46 @@
+Team Name:jayjay team
+Member 1 :jay:1974617416@qq.com
+Member 2 :jay:it's also me 🤣
+Using default tracefiles in ./traces/
+Measuring performance with gettimeofday().
+
+Testing mm malloc
+Reading tracefile: amptjp-bal.rep
+Checking mm_malloc for correctness, efficiency, and performance.
+Reading tracefile: cccp-bal.rep
+Checking mm_malloc for correctness, efficiency, and performance.
+Reading tracefile: cp-decl-bal.rep
+Checking mm_malloc for correctness, efficiency, and performance.
+Reading tracefile: expr-bal.rep
+Checking mm_malloc for correctness, efficiency, and performance.
+Reading tracefile: coalescing-bal.rep
+Checking mm_malloc for correctness, efficiency, and performance.
+Reading tracefile: random-bal.rep
+Checking mm_malloc for correctness, efficiency, and performance.
+Reading tracefile: random2-bal.rep
+Checking mm_malloc for correctness, efficiency, and performance.
+Reading tracefile: binary-bal.rep
+Checking mm_malloc for correctness, efficiency, and performance.
+Reading tracefile: binary2-bal.rep
+Checking mm_malloc for correctness, efficiency, and performance.
+Reading tracefile: realloc-bal.rep
+Checking mm_malloc for correctness, efficiency, and performance.
+Reading tracefile: realloc2-bal.rep
+Checking mm_malloc for correctness, efficiency, and performance.
+
+Results for mm malloc:
+trace  valid  util     ops      secs  Kops
+ 0       yes   99%    5694  0.006945   820
+ 1       yes  100%    5848  0.006942   842
+ 2       yes   99%    6648  0.009874   673
+ 3       yes  100%    5380  0.007140   754
+ 4       yes  100%   14400  0.000099145602
+ 5       yes   92%    4800  0.008667   554
+ 6       yes   92%    4800  0.007779   617
+ 7       yes   55%   12000  0.118230   101
+ 8       yes   51%   24000  0.229529   105
+ 9       yes   28%   14401  0.053908   267
+10       yes   30%   14401  0.000819 17579
+Total          77%  112372  0.449932   250
+
+Perf index = 46 (util) + 17 (thru) = 63/100

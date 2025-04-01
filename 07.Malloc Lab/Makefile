@@ -1,12 +1,12 @@
 #
 # Students' Makefile for the Malloc Lab
 #
-TEAM = bovik
+TEAM = jayjay
 VERSION = 1
 HANDINDIR = /afs/cs.cmu.edu/academic/class/15213-f01/malloclab/handin
 
 CC = gcc
-CFLAGS = -Wall -O2 -m32
+CFLAGS = -Wall -O2 -g -m32
 
 OBJS = mdriver.o mm.o memlib.o fsecs.o fcyc.o clock.o ftimer.o
 
@@ -27,4 +27,12 @@ handin:
 clean:
 	rm -f *~ *.o mdriver
 
+short1: mdriver
+	./mdriver -V -f short1-bal.rep > log.txt
+
+short2: mdriver
+	./mdriver -V -f short2-bal.rep > log.txt
+
+test: mdriver
+	./mdriver -V > log.txt
 
