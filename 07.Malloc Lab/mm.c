@@ -82,6 +82,11 @@ static inline void* get_footer_address(void* address)
     return get_next_block_address(address) - DOUBLE_WORD_SIZE;
 }
 
+static inline void* get_epilogue_block_address()
+{
+    return mem_heap_hi() + 1;
+}
+
 static inline unsigned int get_header(void* address)
 {
     return get_word(get_header_address(address));
@@ -146,7 +151,7 @@ static inline int is_allocated(void* address)
 /*
 address: point to head of payload of a block
 */
-static inline int reach_epilogue_block(void* address)
+static inline int is_epilogue_block(void* address)
 {
     return get_block_size(address) == 0;
 }
@@ -155,11 +160,11 @@ static inline int reach_epilogue_block(void* address)
 size: aligned with DOUBLE_WORD_SIZE
 start_address: point to head of payload of a block
 */
-static void* find_first_fit_block(size_t size, void* start_address)
+static void* find_fit_block(size_t size, void* start_address)
 {
     void* ptr = start_address;
     // from start_address to epilogue block
-    for (; !reach_epilogue_block(ptr); ptr = get_next_block_address(ptr))
+    for (; !is_epilogue_block(ptr); ptr = get_next_block_address(ptr))
     {
         if (get_block_size(ptr) >= size && !is_allocated(ptr))
         {
@@ -174,14 +179,22 @@ static void* find_first_fit_block(size_t size, void* start_address)
             return ptr;
         }
     }
-    // no fit return NULL
-    return NULL;
+    // no fit return epilogue block address
+    return get_epilogue_block_address();
+}
+
+static void* get_next_allocated_block_address(void* address)
+{
+    for (address = get_next_block_address(address);
+        !is_allocated(address);
+        address = get_next_block_address(address));
+    return address;
 }
 
 static void print_block_list()
 {
     printf("----------\n");
-    for (void* ptr = heap_start; !reach_epilogue_block(ptr); ptr = get_next_block_address(ptr))
+    for (void* ptr = heap_start; !is_epilogue_block(ptr); ptr = get_next_block_address(ptr))
     {
         printf("address: %p\tsize:%d\tallocated:%d\n", ptr, get_block_size(ptr), is_allocated(ptr));
     }
@@ -193,6 +206,49 @@ static void print_status()
     printf("heap start:%p\n", heap_start);
     print_block_list();
 }
+
+// /*
+// function: clear fragment
+// return: pointer to first free block
+// */
+// static void* clear_fragment()
+// {
+// #ifdef DEBUG_MODE
+//     printf("before clear fragment\n");
+//     print_status();
+// #endif
+
+//     void* available_start = heap_start,
+//         * current_allocated_block_address = heap_start,
+//         * next_allocated_block_address;
+//     // find first allocated block
+//     while (!is_allocated(current_allocated_block_address))
+//     {
+//         current_allocated_block_address = get_next_block_address(current_allocated_block_address);
+//     }
+//     for (next_allocated_block_address = get_next_allocated_block_address(current_allocated_block_address);
+//         !is_epilogue_block(current_allocated_block_address);
+//         available_start = get_next_block_address(available_start),
+//         current_allocated_block_address = next_allocated_block_address,
+//         next_allocated_block_address = get_next_allocated_block_address(next_allocated_block_address))
+//     {
+//         memmove(get_header_address(available_start),
+//             get_header_address(current_allocated_block_address),
+//             get_block_size(current_allocated_block_address));
+//     }
+//     if (!is_epilogue_block(available_start))
+//     {
+//         set_block_size(available_start, current_allocated_block_address - available_start);
+//         deallocate_block(available_start);
+//     }
+
+// #ifdef DEBUG_MODE
+//     printf("after clear fragment\n");
+//     print_status();
+// #endif
+
+//     return available_start;
+// }
 
 /*
  * mm_init - initialize the malloc package.
@@ -207,6 +263,10 @@ int mm_init(void)
     if (address == (void*)ALIGN((int)address))
     {
         address = get_word_address(address, 2);
+    }
+    else
+    {
+        address = get_word_address(address, 1);
     }
     // set prologue block
     set_block_size(address, DOUBLE_WORD_SIZE);
@@ -231,20 +291,26 @@ void* mm_malloc(size_t size)
 
     // align and plus header, footer
     int newsize = ALIGN(size) + DOUBLE_WORD_SIZE;
-    void* address = find_first_fit_block(newsize, heap_start);
-    // no fit block, try to increment brk pointer
-    if (address == NULL)
+    void* address = find_fit_block(newsize, heap_start);
+    // no fit block
+    if (is_epilogue_block(address))
     {
-        address = mem_sbrk(newsize);
-        if (address == NULL)
+        //address = clear_fragment();
+        long int exceed_size = newsize - get_block_size(address);
+        // no enough space
+        if (exceed_size > 0)
         {
-            return address;
+            if (mem_sbrk(exceed_size) == NULL)
+            {
+                return address;
+            }
         }
         // insert block
         set_block_size(address, newsize);
         allocate_block(address);
         // set epilogue block
         put_word(get_header_address(get_next_block_address(address)), 0x1);
+
     }
     // find fit block
     // && have enough space to generate a new block
