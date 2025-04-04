@@ -28,11 +28,11 @@ clean:
 	rm -f *~ *.o mdriver
 
 short1: mdriver
-	./mdriver -V -f short1-bal.rep > log.txt
+	./mdriver -V -f short1-bal.rep > result.txt
 
 short2: mdriver
-	./mdriver -V -f short2-bal.rep > log.txt
+	./mdriver -V -f short2-bal.rep > result.txt
 
 test: mdriver
-	./mdriver -V > log.txt
+	./mdriver -V > result.txt
 

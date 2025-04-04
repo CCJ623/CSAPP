@@ -37,6 +37,9 @@ team_t team = {
 
 //#define DEBUG_MODE
 
+#define MIN(a, b) (a < b ? a : b)
+#define MAX(a, b) (a > b ? a : b)
+
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
 
@@ -87,6 +90,13 @@ static inline void* get_epilogue_block_address()
     return mem_heap_hi() + 1;
 }
 
+static inline void* set_epilogue_block(int is_previous_allocated)
+{
+    is_previous_allocated = (is_previous_allocated == 0 ? 0x0 : 0x2);
+    put_word(get_header_address(get_epilogue_block_address()), is_previous_allocated | 0x1);
+    return get_epilogue_block_address();
+}
+
 static inline unsigned int get_header(void* address)
 {
     return get_word(get_header_address(address));
@@ -109,6 +119,16 @@ static inline void set_block_size(void* address, size_t size)
 }
 
 /*
+size: aligned with DOUBLE_WORD_SIZE
+address: point to head of payload of a block
+*/
+static inline void set_allocated_block_size(void* address, size_t size)
+{
+    unsigned int word = (get_header(address) & 0x7) | size;
+    put_word(get_header_address(address), word);
+}
+
+/*
 address: point to head of payload of a block
 */
 static inline size_t get_block_size(void* address)
@@ -116,11 +136,24 @@ static inline size_t get_block_size(void* address)
     return get_header(address) & (SIZE_MASK);
 }
 
+static inline void set_previous_allocated_bit(void* address)
+{
+    unsigned int word = get_header(address) | 0x2;
+    put_word(get_header_address(address), word);
+}
+
+static inline void clear_previous_allocated_bit(void* address)
+{
+    unsigned int word = get_header(address) & (~0x2);
+    put_word(get_header_address(address), word);
+}
+
 static inline void allocate_block(void* address)
 {
     unsigned int word = get_header(address) | 0x1;
     put_word(get_header_address(address), word);
-    put_word(get_footer_address(address), word);
+    // set allocated bit in next block's header
+    set_previous_allocated_bit(get_next_block_address(address));
 }
 
 static inline void deallocate_block(void* address)
@@ -128,6 +161,8 @@ static inline void deallocate_block(void* address)
     unsigned int word = get_header(address) & (~0x1);
     put_word(get_header_address(address), word);
     put_word(get_footer_address(address), word);
+    // clear alloacted bit in next block's header to 0
+    clear_previous_allocated_bit(get_next_block_address(address));
 }
 
 static inline void* get_next_block_address(void* address)
@@ -146,6 +181,14 @@ address: point to head of payload of a block
 static inline int is_allocated(void* address)
 {
     return get_header(address) & 0x1;
+}
+
+/*
+address: point to head of payload of a block
+*/
+static inline int is_previous_allocated(void* address)
+{
+    return (get_header(address) & 0x2) != 0;
 }
 
 /*
@@ -198,6 +241,8 @@ static void print_block_list()
     {
         printf("address: %p\tsize:%d\tallocated:%d\n", ptr, get_block_size(ptr), is_allocated(ptr));
     }
+    void* ptr = get_epilogue_block_address();
+    printf("address: %p\tsize:%d\tallocated:%d\n", ptr, get_block_size(ptr), is_allocated(ptr));
     printf("----------\n");
 }
 
@@ -205,6 +250,20 @@ static void print_status()
 {
     printf("heap start:%p\n", heap_start);
     print_block_list();
+}
+
+static void compare_block_content(void* lhs, void* rhs, size_t size)
+{
+    for (size_t offset = 0; offset != size; offset += WORD_SIZE)
+    {
+        if (get_word(lhs + offset) != get_word(rhs + offset))
+        {
+            printf("first different index: %d\n", offset / WORD_SIZE);
+            printf("lhs: %x\t rhs: %x\n", get_word(lhs + offset), get_word(rhs + offset));
+            return;
+        }
+    }
+    printf("consistent content\n");
 }
 
 // /*
@@ -271,8 +330,7 @@ int mm_init(void)
     // set prologue block
     set_block_size(address, DOUBLE_WORD_SIZE);
     allocate_block(address);
-    // set epilogue block
-    put_word(get_header_address(get_next_block_address(address)), 0x1);
+    set_epilogue_block(1);
     // set heap_start to first block
     heap_start = get_next_block_address(address);
     return 0;
@@ -289,36 +347,35 @@ void* mm_malloc(size_t size)
     print_status();
 #endif
 
-    // align and plus header, footer
-    int newsize = ALIGN(size) + DOUBLE_WORD_SIZE;
+    // plus header, then align
+    int newsize = ALIGN(size + WORD_SIZE);
     void* address = find_fit_block(newsize, heap_start);
     // no fit block
     if (is_epilogue_block(address))
     {
         //address = clear_fragment();
-        long int exceed_size = newsize - get_block_size(address);
-        // no enough space
-        if (exceed_size > 0)
+        // if last block is free block
+        if (!is_previous_allocated(address))
         {
-            if (mem_sbrk(exceed_size) == NULL)
-            {
-                return address;
-            }
+            address = get_previous_block_address(address);
+        }
+        long int exceed_size = newsize - get_block_size(address);
+        if (mem_sbrk(exceed_size) == NULL)
+        {
+            return address;
         }
         // insert block
-        set_block_size(address, newsize);
+        set_allocated_block_size(address, newsize);
         allocate_block(address);
-        // set epilogue block
-        put_word(get_header_address(get_next_block_address(address)), 0x1);
-
+        set_epilogue_block(1);
     }
     // find fit block
     // && have enough space to generate a new block
-    else if (get_block_size(address) - newsize >= 2 * DOUBLE_WORD_SIZE)
+    else if (get_block_size(address) - newsize >= DOUBLE_WORD_SIZE)
     {
         size_t left_size = get_block_size(address) - newsize;
         // set block
-        set_block_size(address, newsize);
+        set_allocated_block_size(address, newsize);
         allocate_block(address);
         // generate a new free block
         void* new_block_address = get_next_block_address(address);
@@ -327,6 +384,62 @@ void* mm_malloc(size_t size)
     }
     else
     {
+        allocate_block(address);
+    }
+#ifdef DEBUG_MODE
+    printf("after allocate: \n");
+    print_status();
+#endif
+    return address;
+}
+
+void* mm_malloc_with_source(size_t size, void* source)
+{
+#ifdef DEBUG_MODE
+    printf("before allocate for size: %d\n", size);
+    print_status();
+#endif
+
+    // plus header, then align
+    int newsize = ALIGN(size + WORD_SIZE);
+    void* address = find_fit_block(newsize, heap_start);
+    // no fit block
+    if (is_epilogue_block(address))
+    {
+        //address = clear_fragment();
+        // if last block is free block
+        if (!is_previous_allocated(address))
+        {
+            address = get_previous_block_address(address);
+        }
+        long int exceed_size = newsize - get_block_size(address);
+        if (mem_sbrk(exceed_size) == NULL)
+        {
+            return address;
+        }
+        // insert block
+        memmove(address, source, size);
+        set_allocated_block_size(address, newsize);
+        allocate_block(address);
+        set_epilogue_block(1);
+    }
+    // find fit block
+    // && have enough space to generate a new block
+    else if (get_block_size(address) - newsize >= DOUBLE_WORD_SIZE)
+    {
+        size_t left_size = get_block_size(address) - newsize;
+        // set block
+        memmove(address, source, size);
+        set_allocated_block_size(address, newsize);
+        allocate_block(address);
+        // generate a new free block
+        void* new_block_address = get_next_block_address(address);
+        set_block_size(new_block_address, left_size);
+        deallocate_block(new_block_address);
+    }
+    else
+    {
+        memmove(address, source, size);
         allocate_block(address);
     }
 #ifdef DEBUG_MODE
@@ -347,12 +460,11 @@ void mm_free(void* ptr)
 #endif
 
     void* head_address = get_header_address(ptr),
-        * tail_address = get_footer_address(ptr) + WORD_SIZE,
-        * previous_block_address = get_previous_block_address(ptr),
+        * tail_address = get_next_block_address(ptr) - WORD_SIZE,
         * next_block_address = get_next_block_address(ptr);
-    if (!is_allocated(previous_block_address))
+    if (!is_previous_allocated(ptr))
     {
-        head_address = get_header_address(previous_block_address);
+        head_address = get_header_address(get_previous_block_address(ptr));
     }
     if (!is_allocated(next_block_address))
     {
@@ -376,7 +488,11 @@ void* mm_realloc(void* ptr, size_t size)
 #ifdef DEBUG_MODE
     printf("before reallocate:%p\tnew size:%d\n", ptr, size);
     print_status();
+    size_t compare_size = MIN(get_block_size(ptr) - WORD_SIZE, size);
+    unsigned int* old_data_copy = malloc(compare_size);
+    memcpy(old_data_copy, ptr, compare_size);
 #endif
+
     void* result = NULL;
     if (ptr == NULL)
     {
@@ -389,37 +505,20 @@ void* mm_realloc(void* ptr, size_t size)
     }
     else
     {
-        size_t newsize = ALIGN(size) + DOUBLE_WORD_SIZE;
-        // find a new place
-        if (newsize > get_block_size(ptr))
-        {
-            void* new_address = mm_malloc(newsize);
-            memcpy(new_address, ptr, get_block_size(ptr));
-            mm_free(ptr);
-            result = new_address;
-        }
-        // shrink current block
-        else if (get_block_size(ptr) - newsize >= 2 * DOUBLE_WORD_SIZE)
-        {
-            size_t left_size = get_block_size(ptr) - newsize;
-            // set block
-            set_block_size(ptr, newsize);
-            allocate_block(ptr);
-            // generate a new free block
-            void* new_block_address = get_next_block_address(ptr);
-            set_block_size(new_block_address, left_size);
-            deallocate_block(new_block_address);
-            result = ptr;
-        }
-        else
-        {
-            result = ptr;
-        }
+        // last word might be replaced by footer
+        // save last word in local variable
+        size_t data_size = MIN(get_block_size(ptr) - WORD_SIZE, size) - WORD_SIZE;
+        unsigned int word = get_word(ptr + data_size);
+        mm_free(ptr);
+        result = mm_malloc_with_source(size, ptr);
+        put_word(result + data_size, word);
     }
 
 #ifdef DEBUG_MODE
     printf("after reallocate:%p\tnew size:%d\n", ptr, size);
     print_status();
+    compare_block_content(old_data_copy, result, compare_size);
+    free(old_data_copy);
 #endif
 
     return result;
