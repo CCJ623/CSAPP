@@ -360,6 +360,19 @@ static void print_block_list()
     printf("address: %p\tsize:%d\tallocated:%d\n", ptr, get_block_size(ptr), is_allocated(ptr));
 }
 
+static void print_space_utilization()
+{
+    size_t size = 0;
+    for (void* ptr = heap_start; !is_epilogue_block(ptr); ptr = get_next_block_address(ptr))
+    {
+        if (is_allocated(ptr))
+        {
+            size += get_block_size(ptr);
+        }
+    }
+    printf("Space Utilization: %d%%\n", size * 100 / mem_heapsize());
+}
+
 static void print_free_block_list(size_t index)
 {
     printf("index[%d]:", index);
@@ -383,8 +396,9 @@ static void print_status()
 {
     printf("----------\n");
     printf("heap start:%p\n", heap_start);
+    print_space_utilization();
     print_block_list();
-    //print_free_block_list_array();
+    print_free_block_list_array();
     printf("----------\n");
     fflush(stdout);
 }
